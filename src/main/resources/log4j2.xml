@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Properties>
+        <Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n</Property>
+        <Property name="CONSOLE_LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} [%style{%t}{bright,blue}] %highlight{%-5level}{FATAL=bg_red, ERROR=red, WARN=yellow, INFO=green, DEBUG=blue, TRACE=white} %style{%logger{36}}{cyan} - %msg%n</Property>
+        <Property name="APP_LOG_ROOT">logs</Property>
+    </Properties>
+    
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="${CONSOLE_LOG_PATTERN}" disableAnsi="false"/>
+        </Console>
+        
+<!--        <RollingFile name="FileAppender" fileName="${APP_LOG_ROOT}/application.log"-->
+<!--                     filePattern="${APP_LOG_ROOT}/application-%d{yyyy-MM-dd}-%i.log">-->
+<!--            <PatternLayout pattern="${LOG_PATTERN}"/>-->
+<!--            <Policies>-->
+<!--                <TimeBasedTriggeringPolicy/>-->
+<!--                <SizeBasedTriggeringPolicy size="10 MB"/>-->
+<!--            </Policies>-->
+<!--            <DefaultRolloverStrategy max="10"/>-->
+<!--        </RollingFile>-->
+    </Appenders>
+    
+    <Loggers>
+        <!-- 屏蔽FormatTrackingHSSFListener的错误日志 -->
+        <Logger name="org.apache.poi.hssf.eventusermodel.FormatTrackingHSSFListener" level="OFF"/>
+        
+        <!-- EasyExcel相关日志级别 -->
+        <Logger name="com.alibaba.excel" level="WARN"/>
+        
+        <!-- 应用日志 -->
+        <Logger name="com.excel.shift" level="INFO"/>
+        
+        <Root level="INFO">
+            <AppenderRef ref="Console"/>
+        </Root>
+    </Loggers>
+</Configuration> 
