@@ -1,0 +1,88 @@
+{
+  "columns": [
+    {
+      "excelFieldName": "测深",
+      "columnCell": "A",
+      "unit": "m",
+      "order": 1,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "井斜",
+      "columnCell": "B",
+      "unit": "°",
+      "order": 2,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "方位",
+      "columnCell": "C",
+      "unit": "°",
+      "order": 3,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "北坐标",
+      "columnCell": "D",
+      "unit": "n",
+      "order": 4,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "东坐标",
+      "columnCell": "E",
+      "unit": "n",
+      "order": 5,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "垂深",
+      "columnCell": "F",
+      "unit": "m",
+      "order": 6,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "狗腿度",
+      "columnCell": "G",
+      "unit": "°/30m",
+      "order": 7,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "井斜变化",
+      "columnCell": "I",
+      "unit": "°",
+      "order": 8,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "方位变化",
+      "columnCell": "J",
+      "unit": "°",
+      "order": 9,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "闭合方位",
+      "columnCell": "K",
+      "unit": "°",
+      "order": 10,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "闭合距",
+      "columnCell": "L",
+      "unit": "m",
+      "order": 11,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "水平位移",
+      "columnCell": "M",
+      "unit": "m",
+      "order": 12,
+      "dataType": "Double"
+    }
+  ]
+}

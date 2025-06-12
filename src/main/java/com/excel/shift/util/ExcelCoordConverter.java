@@ -12,7 +12,7 @@ public class ExcelCoordConverter {
      */
     public static int columnNameToIndex(String columnName) {
         if (columnName == null || columnName.isEmpty()) {
-            throw new IllegalArgumentException("列名不能为空");
+            throw new IllegalArgumentException("excel列名不能为空");
         }
         
         int result = 0;

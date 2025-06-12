@@ -4,28 +4,99 @@ import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.read.metadata.ReadSheet;
 import com.alibaba.excel.util.StringUtils;
 import com.excel.shift.config.*;
+import com.excel.shift.config.response.ColumnDoubleValueResponse;
+import com.excel.shift.facade.SimpleExtract;
 import com.excel.shift.result.ExtractionResult;
 import com.excel.shift.result.SheetExtractionResult;
 import com.excel.shift.util.ExcelCoordConverter;
+import com.excel.shift.util.JsonConfigReader;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.dromara.hutool.core.text.StrUtil;
 import org.dromara.hutool.core.util.BooleanUtil;
+
+import java.io.IOException;
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Getter
-public class ExcelExtractor {
+public class ExcelExtractor implements SimpleExtract {
+    // 常用的日期时间格式列表，按优先级从最具体到最通用排列
+    // 注意：这里的顺序很重要，因为它决定了尝试解析的顺序
+    private static final List<String> COMMON_DATE_TIME_PATTERNS = Arrays.asList(
+            "yyyy-MM-dd HH:mm:ss",     // 标准格式带秒
+            "yyyy/MM/dd HH:mm:ss",     // 斜杠分隔带秒
+            "yyyy-M-d HH:mm:ss",       // 单月单日带秒 (横线)
+            "yyyy/M/d HH:mm:ss",       // 单月单日带秒 (斜杠)
+            "yyyy-MM-dd HH:mm:ss",
+            "yyyy/MM/dd HH:mm:ss",
+            "yyyy-M-d HH:mm:ss",
+            "yyyy/M/d HH:mm:ss",
+            "yyyy/M/d HH:mm:ss",
+            "yyyy-MM-dd HH:mm",        // 标准格式不带秒
+            "yyyy/MM/dd HH:mm",        // 斜杠分隔不带秒
+            "yyyy-M-d HH:mm",          // 单月单日不带秒 (横线)
+            "yyyy/M/d HH:mm",          // 单月单日不带秒 (斜杠)
+            "yyyy-MM-dd HH:mm",
+            "yyyy/MM/dd HH:mm",
+            "yyyy-M-d HH:mm",
+            "yyyy/M/d HH:mm",
+            "yyyy-MM-dd",              // 只有日期 (标准)
+            "yyyy/MM/dd",              // 只有日期 (斜杠)
+            "yyyy-M-d",                // 只有日期 (单月单日，横线)
+            "yyyy/M/d",
+            "yyyy-MM-dd",
+            "yyyy/MM/dd",
+            "yyyy-M-d"
+    );
+    // 对于 java.util.Date，需要单独的模式列表，因为 SimpleDateFormat 不支持 java.time 的一些特性
+    private static final List<String> COMMON_UTIL_DATE_PATTERNS = Arrays.asList(
+            "yyyy-MM-dd HH:mm:ss",
+            "yyyy/MM/dd HH:mm:ss",
+            "yyyy-M-d HH:mm:ss",
+            "yyyy/M/d HH:mm:ss",
+            "yyyy/M/d HH:mm:ss",
+            "yyyy-M-d HH:mm:ss",
+            "yyyy/M/d HH:mm:ss",
+            "yyyy-MM-dd HH:mm:ss",
+            "yyyy/MM/dd HH:mm:ss",
+            "yyyy-M-d HH:mm",
+            "yyyy/M/d HH:mm",
+            "yyyy-MM-dd HH:mm",
+            "yyyy/MM/dd HH:mm",
+            "yyyy-MM-dd HH:mm",
+            "yyyy/MM/dd HH:mm",
+            "yyyy-M-d HH:mm",
+            "yyyy/M/d HH:mm",
+            "yyyy-MM-dd",
+            "yyyy/MM/dd",
+            "yyyy-MM-dd",
+            "yyyy/MM/dd",
+            "yyyy-M-d",
+            "yyyy-M-d",
+            "yyyy/M/d"
+    );
     private final String excelPath;
+    private List<Class<?>> classList;
+    private Request request;
+    private int totalSheetCount;
+    private ExcelMappingConfig originalMappingConfig;
     private ExcelMappingConfig mappingConfig;
-    private final List<Class<?>> classList;
-    private final int totalSheetCount;
     private Map<Integer, Map<Integer, String>> currentSheetData;
-    private final ExcelMappingConfig originalMappingConfig;
+    private RequestForColumn requestForColumn;
+    private Integer startRow = null;
+    private Integer endRow = null;
+    // 当前正在处理的结果对象，用于记录错误
+    private SheetExtractionResult currentResult;
 
     public ExcelExtractor(String excelPath, String configPath, List<Class<?>> classList) {
         this.excelPath = excelPath;
@@ -34,6 +105,7 @@ public class ExcelExtractor {
         this.originalMappingConfig = new ExcelMappingConfig(configPath);
         this.mappingConfig = this.originalMappingConfig.deepClone();
     }
+
     public ExcelExtractor(String excelPath, ExcelMappingConfig mappingConfig, List<Class<?>> classList) {
         this.excelPath = excelPath;
         this.classList = classList;
@@ -42,16 +114,37 @@ public class ExcelExtractor {
         this.mappingConfig = this.originalMappingConfig.deepClone();
     }
 
+    public ExcelExtractor(Request request) {
+        this.request = request;
+        this.excelPath = request.getFilePath();
+        this.classList = request.getClassInfoList();
+        this.totalSheetCount = this.getSheetNames().size();
+        this.originalMappingConfig = ExcelMappingConfig.buildExcelMappingConfig(request);
+        this.mappingConfig = this.originalMappingConfig.deepClone();
+
+    }
+
+    public ExcelExtractor(RequestForColumn requestForColumn) {
+        this.requestForColumn = requestForColumn;
+        this.excelPath = requestForColumn.getFilePath();
+        this.startRow = requestForColumn.getStartRow();
+        this.endRow = requestForColumn.getEndRow();
+    }
+
     private boolean loadSheetData(int sheetIndex) {
         try {
-            ExcelDataListener excelDataListener = new ExcelDataListener(mappingConfig);
+            ExcelDataListener excelDataListener = null;
+            if (this.startRow != null || this.endRow != null) {
+                if (this.startRow == null) this.startRow = -1;
+                if (this.endRow == null) this.endRow = -1;
+                excelDataListener = new ExcelDataListener(mappingConfig, this.startRow, this.endRow);
+            } else excelDataListener = new ExcelDataListener(mappingConfig);
             // 根据文件名判断Excel类型
             boolean isXls = excelPath.toLowerCase().endsWith(".xls");
             boolean isXlsx = excelPath.toLowerCase().endsWith(".xlsx");
             if (!isXls && !isXlsx) {
                 throw new IllegalArgumentException("文件类型不支持，仅支持 .xls 和 .xlsx 文件");
             }
-
             // 读取数据
             EasyExcel.read(excelPath)
                     .excelType(isXls ? com.alibaba.excel.support.ExcelTypeEnum.XLS : com.alibaba.excel.support.ExcelTypeEnum.XLSX)
@@ -66,7 +159,11 @@ public class ExcelExtractor {
         } catch (Exception e) {
             log.error("读取sheet[{}]数据失败: {}", sheetIndex, e.getMessage());
             this.currentSheetData = new HashMap<>();
-            return false;
+            if (currentResult != null) {
+                currentResult.addError("读取sheet数据失败", e, "SheetLoader");
+            }
+            throw new RuntimeException(e);
+//            return false;
         }
         return true;
     }
@@ -110,8 +207,10 @@ public class ExcelExtractor {
             // 使用统一的数据提取方法，直接传递结果类型枚举
             return extractObject(extractor, targetClass, extractor.getResultType());
         } catch (Exception e) {
-            log.error("数据提取失败: {}", e.getMessage(), e);
-            throw new RuntimeException("数据提取失败", e);
+            log.error("数据提取失败: {}", e.getMessage());
+            // 不再直接抛出异常，仅记录日志并返回null
+            // 由调用者决定如何处理错误
+            return null;
         }
     }
 
@@ -124,7 +223,7 @@ public class ExcelExtractor {
      * @return 提取的对象或对象列表
      */
     private <T> Object extractObject(ExtractorConfig extractor, Class<T> targetClass,
-                                    ExtractorConfig.ResultType resultType) throws Exception {
+                                     ExtractorConfig.ResultType resultType) throws Exception {
         switch (resultType) {
             case SINGLE:
                 // 单个对象类型
@@ -166,7 +265,7 @@ public class ExcelExtractor {
                 if (!currentSheetData.containsKey(row)) continue;
                 T rowInstance = elementType.getDeclaredConstructor().newInstance();
                 // 取表格行数据   里面有可能有合并单元格
-                boolean hasTableData = extractTableRowToInstance(tableConfig, rowInstance, row, startCol, startRow);
+                boolean hasTableData = extractTableRowToInstance(tableConfig, rowInstance, row, startCol, startRow, extractor.getId());
                 // 如果行有效，添加到结果集
                 if (hasTableData) {
                     resultList.add(rowInstance);
@@ -180,9 +279,10 @@ public class ExcelExtractor {
      * 提取表格行数据到指定对象实例
      * 返回是否提取到有效数据
      */
-    private <T> boolean extractTableRowToInstance(TableConfig tableConfig, T instance, int row, int startCol, int startRow) {
-        int success=0;
-        int cntMerge=0;
+    private <T> boolean extractTableRowToInstance(TableConfig tableConfig, T instance, int row, int startCol, int startRow, String extractorId) {
+        int success = 0;
+        int cntMerge = 0;
+
         try {
             Map<Integer, String> rowData = currentSheetData.get(row);
             if (rowData == null || rowData.isEmpty()) {
@@ -226,14 +326,32 @@ public class ExcelExtractor {
                             success++;
                         }
                     }
+                } catch (NoSuchFieldException e) {
+                    String message = "提取字段[" + column.getJavaFieldName() + "]失败: 未找到这个java字段" + e.getMessage();
+                    log.error(message);
+                    // 添加到错误集合
+                    if (currentResult != null) {
+                        currentResult.addError(message, e, extractorId, row + 1, column.getColumnCell());
+                    }
                 } catch (Exception e) {
-                    log.error("提取字段[{}]失败: {}", column.getJavaFieldName(), e.getMessage(), e);
+                    String message = "提取字段[" + column.getJavaFieldName() + "]失败: " + e.getMessage();
+                    log.error(message);
+                    // 添加到错误集合
+                    if (currentResult != null) {
+                        currentResult.addError(message, e, extractorId, row + 1, column.getColumnCell());
+                    }
                 }
             }
         } catch (Exception e) {
-            log.error("提取行数据失败: {}", e.getMessage(), e);
+            String message = "提取行数据失败: " + e.getMessage();
+            log.error(message);
+            // 添加到错误集合
+            if (currentResult != null) {
+                currentResult.addError(message, e, extractorId, row + 1, null);
+            }
+            return false;
         }
-        return cntMerge<success;
+        return cntMerge < success;
     }
 
     /**
@@ -285,7 +403,12 @@ public class ExcelExtractor {
                     javaField.set(targetObject, convertedValue);
                 }
             } catch (Exception e) {
-                log.error("提取字段[{}]失败: {}", entry.getKey(), e.getMessage(), e);
+                String message = "提取字段[" + entry.getKey() + "]失败: " + e.getMessage();
+                log.error(message, e);
+                // 添加到错误集合
+                if (currentResult != null) {
+                    currentResult.addError(message, e, extractor.getId());
+                }
             }
         }
     }
@@ -308,7 +431,12 @@ public class ExcelExtractor {
                 }
             }
         } catch (Exception e) {
-            log.error("使用正则表达式[{}]提取值[{}]失败: {}", pattern, input, e.getMessage(), e);
+            String message = "使用正则表达式[" + pattern + "]提取值[" + input + "]失败: " + e.getMessage();
+            log.error(message, e);
+            // 添加到错误集合
+            if (currentResult != null) {
+                currentResult.addError(message, e, null);
+            }
         }
         return null;
     }
@@ -371,8 +499,84 @@ public class ExcelExtractor {
         return rowNum - 1;
     }
 
+
+    private Date parseUtilDate(String value, String pattern) throws ParseException {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        if (pattern != null && !pattern.isEmpty()) {
+            SimpleDateFormat sdf = new SimpleDateFormat(pattern);
+            sdf.setLenient(false);
+            return sdf.parse(value);
+        } else {
+            for (String p : COMMON_UTIL_DATE_PATTERNS) {
+                try {
+                    SimpleDateFormat sdf = new SimpleDateFormat(p);
+                    sdf.setLenient(false);
+                    return sdf.parse(value);
+                } catch (ParseException ignored) {
+                    // 尝试下一个格式
+                }
+            }
+            throw new ParseException("无法解析日期: " + value + "，尝试了所有通用格式。", 0);
+        }
+    }
+
+
+    private LocalDate parseLocalDate(String value, String pattern) {
+        if (pattern != null && !pattern.isEmpty()) {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
+            if (pattern.contains("H") || pattern.contains("m") || pattern.contains("s")) {
+                return LocalDateTime.parse(value, formatter).toLocalDate();
+            } else {
+                return LocalDate.parse(value, formatter);
+            }
+        } else {
+            // 否则尝试所有常用日期格式 (只包含日期部分)
+            for (String p : COMMON_DATE_TIME_PATTERNS) {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern(p);
+                try {
+                    if (p.contains("H") || p.contains("m") || p.contains("s")) {
+                        return (LocalDate) LocalDateTime.parse(value, formatter).toLocalDate();
+                    } else {
+                        return LocalDate.parse(value, formatter);
+                    }
+                } catch (Exception ignored) {
+
+                }
+            }
+            throw new DateTimeParseException("无法解析 LocalDate: " + value + "，尝试了所有通用日期格式。", value, 0);
+        }
+    }
+
+    private LocalDateTime parseLocalDateTime(String value, String pattern) {
+        if (pattern != null && !pattern.isEmpty()) {
+            // 如果指定了 pattern，就只用指定的
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
+            return LocalDateTime.parse(value, formatter);
+        } else {
+            // 否则尝试所有常用日期时间格式
+            for (String p : COMMON_DATE_TIME_PATTERNS) {
+                try {
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern(p);
+                if (p.contains("H") || p.contains("m") || p.contains("s")) {
+                    return LocalDateTime.parse(value, formatter);
+                } else {
+                    return LocalDate.parse(value, formatter).atStartOfDay(); // 补时间 00:00:00
+                }
+                } catch (DateTimeParseException e) {
+                    // 尝试下一个格式
+                }
+            }
+            // 如果所有格式都尝试失败，则抛出异常
+            throw new DateTimeParseException("无法解析 LocalDateTime: " + value + "，尝试了所有通用格式。", value, 0);
+        }
+    }
+
+
     /**
-     * 转换值为指定类型
+     * 将字符串值转换为指定Java类型
      *
      * @param value   要转换的字符串值
      * @param type    目标Java类型
@@ -387,35 +591,51 @@ public class ExcelExtractor {
         try {
             switch (type.toLowerCase()) {
                 case "string":
+                case "java.lang.string":
                     return cleanValue;
                 case "int":
                 case "integer":
+                case "java.lang.integer":
                     // 处理可能包含非数字字符的情况
                     String intStr = cleanValue.replaceAll("[^\\d-]", "");
                     if (intStr.isEmpty()) return null;
                     return Integer.parseInt(intStr);
                 case "long":
+                case "java.lang.long":
                     String longStr = cleanValue.replaceAll("[^\\d-]", "");
                     if (longStr.isEmpty()) return null;
                     return Long.parseLong(longStr);
                 case "float":
+                case "java.lang.float":
                     // 处理中文逗号和其他可能影响解析的字符
                     String floatStr = cleanValue.replace(",", "").replace("，", "");
                     if (floatStr.isEmpty() || floatStr.equals("-")) return null;
                     return Float.parseFloat(floatStr);
                 case "double":
+                case "java.lang.double":
                     String doubleStr = cleanValue.replace(",", "").replace("，", "");
                     if (doubleStr.isEmpty() || doubleStr.equals("-")) return null;
                     return Double.parseDouble(doubleStr);
                 case "boolean":
+                case "java.lang.boolean":
                     return Boolean.parseBoolean(cleanValue) ||
                             "是".equals(cleanValue) ||
                             "yes".equalsIgnoreCase(cleanValue) ||
                             "true".equalsIgnoreCase(cleanValue) ||
                             "1".equals(cleanValue);
+                case "bigdecimal":
+                case "java.math.bigdecimal":
+                    return new BigDecimal(cleanValue);
                 case "date":
-                    // 日期格式处理
-//                    return parseDate(cleanValue, pattern);
+                case "java.util.date":
+                    // 默认返回 java.util.Date
+                    return parseUtilDate(cleanValue, pattern);
+                case "localdate":
+                case "java.time.localdate":
+                    return parseLocalDate(cleanValue, pattern);
+                case "localdatetime":
+                case "java.time.localdatetime":
+                    return parseLocalDateTime(cleanValue, pattern);
                 case "enum":
                     // 枚举处理（需要额外的类型信息）
                     // 这里可以扩展为从模式中提取枚举类名
@@ -424,11 +644,23 @@ public class ExcelExtractor {
                     // 默认作为字符串处理
                     return cleanValue;
             }
+        } catch (NumberFormatException e) {
+            String message = "转换值 [" + cleanValue + "] 到数值类型 [" + type + "] 失败: " + e.getMessage();
+            log.warn(message);
+            if (currentResult != null) {
+                currentResult.addError(message, e, null);
+            }
+            return null;
         } catch (Exception e) {
-//            log.error("转换值 [{}] 到类型 [{}] 失败: {}", cleanValue, type, e.getMessage());
+            String message = "转换值 [" + cleanValue + "] 到类型 [" + type + "] 失败: " + e.getMessage();
+            log.error(message, e);
+            if (currentResult != null) {
+                currentResult.addError(message, e, null);
+            }
             return null;
         }
     }
+
 
     /**
      * 解析日期字符串
@@ -457,7 +689,11 @@ public class ExcelExtractor {
             }
 
             // 所有格式都尝试失败，记录错误
-            log.warn("无法解析日期 [{}]，尝试的所有格式均失败", dateStr);
+            String message = "无法解析日期 [" + dateStr + "]，尝试的所有格式均失败";
+            log.warn(message);
+            if (currentResult != null) {
+                currentResult.addError(message, null, null);
+            }
             return null;
         }
 
@@ -466,16 +702,20 @@ public class ExcelExtractor {
             SimpleDateFormat sdf = new SimpleDateFormat(pattern);
             return sdf.parse(dateStr.trim());
         } catch (ParseException e) {
-            log.error("使用格式 [{}] 解析日期 [{}] 失败: {}", pattern, dateStr, e.getMessage());
+            String message = "使用格式 [" + pattern + "] 解析日期 [" + dateStr + "] 失败: " + e.getMessage();
+            log.error(message, e);
+            if (currentResult != null) {
+                currentResult.addError(message, e, null);
+            }
             return null;
         }
     }
 
     /**
-     * 提取指定sheet中的所有配置类型数据
+     * 提取指定sheet中的所有已配置类型的数据（推荐使用的主要方法）
      *
-     * @param sheetIndex sheet索引
-     * @return 包含所有提取结果的sheet结果对象
+     * @param sheetIndex 要提取的sheet索引
+     * @return 包含所有类型提取结果的Sheet结果对象
      */
     private SheetExtractionResult extractAllFromSheet(int sheetIndex) {
         // 获取sheet名称
@@ -483,12 +723,13 @@ public class ExcelExtractor {
         String sheetName = sheetIndex < sheetNames.size() ? sheetNames.get(sheetIndex) : "Sheet" + (sheetIndex + 1);
 
         // 创建结果对象
-        SheetExtractionResult result = new SheetExtractionResult(sheetIndex, sheetName);
+        this.currentResult = new SheetExtractionResult(sheetIndex, sheetName);
         // 加载sheet数据
         if (BooleanUtil.isFalse(loadSheetData(sheetIndex))) {
             log.error("加载解析Sheet[{}]数据失败", sheetIndex);
-            result.setSuccess(false);
-            return result;
+            currentResult.setSuccess(false);
+            currentResult.addError("加载Sheet数据失败", null, null);
+            return currentResult;
         }
 
         // 对每个配置的类型进行提取
@@ -498,21 +739,74 @@ public class ExcelExtractor {
                 ExtractorConfig config = findExtractorForClass(clazz.getName());
                 if (config == null) {
                     log.warn("未找到类 {} 的提取器配置", clazz.getName());
+                    currentResult.addError("未找到对应类的配置信息", null, clazz.getName());
                     continue;
                 }
 
                 // 提取数据
-                Object extractedData = extractData(sheetIndex, clazz);
-                if (extractedData != null) {
-                    result.addResult(clazz, extractedData);
-                    log.info("成功提取类型 {} 的数据", clazz.getName());
+                try {
+                    Object extractedData = extractDataWithErrorHandling(sheetIndex, clazz, currentResult, config);
+                    if (extractedData != null) {
+                        currentResult.addResult(clazz, extractedData);
+                        log.info("成功提取类型 {} 的数据", clazz.getName());
+                    }
+                } catch (Exception e) {
+                    log.error("提取类型 {} 的数据时发生错误: {}", clazz.getName(), e.getMessage(), e);
+                    currentResult.addError("提取数据时发生错误", e, config.getId());
+                    // 不中断整个提取过程
                 }
             } catch (Exception e) {
-                log.error("提取类型 {} 的数据时发生错误: {}", clazz.getName(), e.getMessage(), e);
+                log.error("处理类型 {} 时发生错误: {}", clazz.getName(), e.getMessage(), e);
+                currentResult.addError("配置处理时发生错误", e, null);
+                // 不中断整个提取过程
             }
         }
+
+        // 如果有任何错误，将结果标记为失败
+        if (currentResult.hasErrors()) {
+            currentResult.setSuccess(false);
+        }
+
         log.info("提取Sheet[{}]数据完毕", sheetIndex);
+        SheetExtractionResult result = this.currentResult;
+        this.currentResult = null; // 清空当前结果引用
         return result;
+    }
+
+    /**
+     * 带错误处理的数据提取方法
+     *
+     * @param sheetIndex  sheet索引
+     * @param targetClass 目标类
+     * @param result      结果对象，用于添加错误信息
+     * @param config      提取器配置
+     * @return 提取的对象或对象列表
+     */
+    @SuppressWarnings("unchecked")
+    private <T> Object extractDataWithErrorHandling(int sheetIndex, Class<T> targetClass,
+                                                    SheetExtractionResult result, ExtractorConfig config) {
+        try {
+            // 使用统一的数据提取方法，直接传递结果类型枚举
+            return extractObject(config, targetClass, config.getResultType());
+        } catch (NumberFormatException e) {
+            // 数字格式错误
+            String message = "数值转换错误: " + e.getMessage();
+            log.warn(message);
+            result.addError(message, e, config.getId());
+            return null;
+        } catch (IllegalAccessException | NoSuchFieldException e) {
+            // 反射错误
+            String message = "反射访问错误: " + e.getMessage();
+            log.error(message, e);
+            result.addError(message, e, config.getId());
+            return null;
+        } catch (Exception e) {
+            // 其他异常
+            String message = "数据提取失败: " + e.getMessage();
+            log.error(message, e);
+            result.addError(message, e, config.getId());
+            return null;
+        }
     }
 
     /**
@@ -535,7 +829,7 @@ public class ExcelExtractor {
                 cnt++;
             }
             result.addSheetResult(i, sheetResult);
-            this.mappingConfig=this.originalMappingConfig.deepClone();
+            this.mappingConfig = this.originalMappingConfig.deepClone();
         }
         log.info("共提取: {}个sheet 成功: {}个 失败: {}个", totalSheetCount, cnt, totalSheetCount - cnt);
         return result;
@@ -633,11 +927,17 @@ public class ExcelExtractor {
         // 确定表格范围
         int startRow = resolveRowIndex(extractor.getStartRow());
         int endRow = extractor.getEndRow() != null ? resolveRowIndex(extractor.getEndRow()) :
-                    findLastDataRow(startRow, 0); // 如果未指定结束行，自动查找
+                findLastDataRow(startRow, 0); // 如果未指定结束行，自动查找
 
         // 获取行组计数（每组包含多少行）
         int groupRowCount = extractor.getGroupRowCount();
-        if(groupRowCount <= 0)log.error("GROUP_LIST提取错误: 未指定每组行数!");
+        if (groupRowCount <= 0) {
+            String message = "GROUP_LIST提取错误: 未指定每组行数!";
+            log.error(message);
+            if (currentResult != null) {
+                currentResult.addError(message, null, extractor.getId());
+            }
+        }
         log.info("GROUP_LIST提取: 开始行={}, 结束行={}, 每组行数={}", startRow, endRow, groupRowCount);
 
 
@@ -686,7 +986,7 @@ public class ExcelExtractor {
                                 for (int i = 0; i < groupRowCount; i++) {
                                     int searchRow = groupStartRow + i;
                                     if (currentSheetData.containsKey(searchRow) &&
-                                        currentSheetData.get(searchRow).containsKey(col)) {
+                                            currentSheetData.get(searchRow).containsKey(col)) {
                                         String value = currentSheetData.get(searchRow).get(col);
                                         if (!StringUtils.isEmpty(value)) {
                                             cellValue = value;
@@ -715,10 +1015,13 @@ public class ExcelExtractor {
                             }
                         }
                     } catch (Exception e) {
-                        log.error("提取字段[{}]失败: {}", column.getJavaFieldName(), e.getMessage(), e);
+                        String message = "提取字段[" + column.getJavaFieldName() + "]失败: " + e.getMessage();
+                        log.error(message, e);
+                        if (currentResult != null) {
+                            currentResult.addError(message, e, extractor.getId(), groupStartRow + 1, column.getColumnCell());
+                        }
                     }
                 }
-
                 // 如果组有有效数据，添加到结果集
                 if (hasData) {
                     resultList.add(groupInstance);
@@ -757,8 +1060,8 @@ public class ExcelExtractor {
         // 查找最后一列（根据数据存在情况自动判断）
         int endCol = findLastDataColumn(startRow, startCol, endRow);
 
-        log.info("VERTICAL_LIST: "+elementType.getSimpleName()+"提取: 开始行={}, 结束行={}, 开始列={}, 结束列={}",
-                startRow+1, endRow+1, ExcelCoordConverter.indexToColumnName(startCol), ExcelCoordConverter.indexToColumnName(endCol));
+        log.info("VERTICAL_LIST: " + elementType.getSimpleName() + "提取: 开始行={}, 结束行={}, 开始列={}, 结束列={}",
+                startRow + 1, endRow + 1, ExcelCoordConverter.indexToColumnName(startCol), ExcelCoordConverter.indexToColumnName(endCol));
 
         // 提取表格数据
         if (extractor.getTable() != null) {
@@ -770,8 +1073,8 @@ public class ExcelExtractor {
                 boolean hasData = false;
                 for (int row = startRow; row <= endRow; row++) {
                     if (currentSheetData.containsKey(row) &&
-                        currentSheetData.get(row).containsKey(col) &&
-                        !StringUtils.isEmpty(currentSheetData.get(row).get(col))) {
+                            currentSheetData.get(row).containsKey(col) &&
+                            !StringUtils.isEmpty(currentSheetData.get(row).get(col))) {
                         hasData = true;
                         break;
                     }
@@ -796,7 +1099,11 @@ public class ExcelExtractor {
 
                         // 获取字段所在行（通过rowCell指定）
                         if (column.getRowCell() == null) {
-                            log.warn("垂直列表配置错误：字段 {} 未指定rowCell", column.getJavaFieldName());
+                            String message = "垂直列表配置错误：字段 " + column.getJavaFieldName() + " 未指定rowCell";
+                            log.warn(message);
+                            if (currentResult != null) {
+                                currentResult.addError(message, null, extractor.getId());
+                            }
                             continue;
                         }
 
@@ -828,7 +1135,12 @@ public class ExcelExtractor {
                             }
                         }
                     } catch (Exception e) {
-                        log.error("提取垂直列表字段[{}]失败: {}", column.getJavaFieldName(), e.getMessage(), e);
+                        String message = "提取垂直列表字段[" + column.getJavaFieldName() + "]失败: " + e.getMessage();
+                        log.error(message, e);
+                        if (currentResult != null) {
+                            int fieldRow = column.getRowCell() != null ? resolveRowIndex(column.getRowCell()) : -1;
+                            currentResult.addError(message, e, extractor.getId(), fieldRow + 1, ExcelCoordConverter.indexToColumnName(col));
+                        }
                     }
                 }
 
@@ -841,38 +1153,84 @@ public class ExcelExtractor {
 
         return resultList;
     }
-    
+
     /**
      * 查找最后一列数据
      * 通过检查数据存在情况自动判断最后一列
      */
     private int findLastDataColumn(int startRow, int startCol, int endRow) {
         int lastCol = startCol;
-        
+
         // 遍历所有行，找出最大的列索引
         for (int row = startRow; row <= endRow; row++) {
             if (!currentSheetData.containsKey(row)) {
                 continue;
             }
-            
+
             // 获取行数据
             Map<Integer, String> rowData = currentSheetData.get(row);
             if (rowData == null || rowData.isEmpty()) {
                 continue;
             }
-            
+
             // 查找该行中最大的列索引
             int maxColIndex = rowData.keySet().stream()
                     .filter(col -> col >= startCol && !StringUtils.isEmpty(rowData.get(col)))
                     .max(Integer::compareTo)
                     .orElse(startCol);
-            
+
             // 更新最后一列
             lastCol = Math.max(lastCol, maxColIndex);
         }
-        
+
         return lastCol;
     }
 
+    @Override
+    public List<ColumnDoubleValueResponse> extractByColumn(int sheetIndex) throws IOException {
+
+        boolean b = loadSheetData(sheetIndex);
+        if (!b) throw new RuntimeException("加载Excel数据失败");
+        //
+        RequestForColumn request1 = this.requestForColumn;
+        List<ExcelColumnInfo> columnInfoList = new ArrayList<>();
+//        columnInfoList.add(new ExcelColumnInfo().setExcelFieldName("测深").setUnit("m"));
+        ExcelColumnConfig excelColumnConfig = JsonConfigReader.readConfig(requestForColumn.getConfigPath());
+        columnInfoList = excelColumnConfig.getColumns();
+        columnInfoList.sort(Comparator.comparingInt(ExcelColumnInfo::getOrder));
+        if (request1 == null) throw new RuntimeException("excel列配置文件不能为空");
+        request1.setExcelColumnInfoList(columnInfoList);
+        // 3. 按列提取数据
+        List<ColumnDoubleValueResponse> result = new ArrayList<>();
+        for (ExcelColumnInfo columnInfo : request1.getExcelColumnInfoList()) {
+            ColumnDoubleValueResponse response = new ColumnDoubleValueResponse();
+            response.setExcelFieldName(columnInfo.getExcelFieldName());
+            response.setUnit(columnInfo.getUnit());
+            // 收集该列所有行的值
+            List<Double> columnValues = new ArrayList<>();
+            for (Map.Entry<Integer, Map<Integer, String>> rowEntry : currentSheetData.entrySet()) {
+                int colIndex = ExcelCoordConverter.columnNameToIndex(columnInfo.getColumnCell()); // 获取列索引
+                Object value = rowEntry.getValue().get(colIndex);
+//                 log.info(rowEntry.toString());
+//                 log.info("行号: " + rowEntry.getKey() + ", 列名: " + columnInfo.getColumnCell()+"列号 " + colIndex+ ", 值: " + value);
+//                log.info("列[" + colIndex + "]的值: " + value);
+                // 转换为double 如果转换失败就设置为null
+                if (value != null) {
+                    try {
+                        columnValues.add(Double.parseDouble(String.valueOf(value)));
+                    } catch (NumberFormatException e) {
+                        log.warn("列[" + columnInfo.getColumnCell() + "]数据转换失败: " + value);
+                        columnValues.add(null);
+                    }
+                } else {
+                    columnValues.add(null);
+                }
+            }
+//            log.info("列[" + columnInfo.getColumnCell() + "]的所有值: " + columnValues);
+            response.setColumnValues(columnValues);
+            result.add(response);
+        }
+        return result;
+    }
 }
 

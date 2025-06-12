@@ -1,0 +1,98 @@
+{
+  "DrillingGasData": {
+    "targetClass": "com.excel.shift.MudGeoOilgas",
+    "description": "钻井气体分析数据",
+    "order": 1,
+    "resultType": "LIST",
+    "startRow": "3",
+    "endRow": null,
+    "table": {
+      "columns": {
+        "depth": {
+          "javaFieldName": "botDepth",
+          "javaFieldType": "Double",
+          "columnCell": "B",
+          "description": "井深(m)",
+          "order": 1
+        },
+        "rop": {
+          "javaFieldName": "rop",
+          "javaFieldType": "Double",
+          "columnCell": "C",
+          "description": "钻时(min/m)",
+          "order": 2
+        },
+        "tg": {
+          "javaFieldName": "tg",
+          "javaFieldType": "Double",
+          "columnCell": "D",
+          "description": "全烃(%)",
+          "order": 3
+        },
+        "c1": {
+          "javaFieldName": "c1",
+          "javaFieldType": "Double",
+          "columnCell": "E",
+          "description": "甲烷(%)",
+          "order": 4
+        },
+        "c2": {
+          "javaFieldName": "c2",
+          "javaFieldType": "Double",
+          "columnCell": "F",
+          "description": "乙烷(%)",
+          "order": 5
+        },
+        "c3": {
+          "javaFieldName": "c3",
+          "javaFieldType": "Double",
+          "columnCell": "G",
+          "description": "丙烷(%)",
+          "order": 6
+        },
+        "ic4": {
+          "javaFieldName": "ic4",
+          "javaFieldType": "Double",
+          "columnCell": "H",
+          "description": "异丁烷(%)",
+          "order": 7
+        },
+        "nc4": {
+          "javaFieldName": "nc4",
+          "javaFieldType": "Double",
+          "columnCell": "I",
+          "description": "正丁烷(%)",
+          "order": 8
+        },
+        "ic5": {
+          "javaFieldName": "ic5",
+          "javaFieldType": "Double",
+          "columnCell": "J",
+          "description": "异戊烷(%)",
+          "order": 9
+        },
+        "nc5": {
+          "javaFieldName": "nc5",
+          "javaFieldType": "Double",
+          "columnCell": "K",
+          "description": "正戊烷(%)",
+          "order": 10
+        },
+        "co2": {
+          "javaFieldName": "co2",
+          "javaFieldType": "Double",
+          "columnCell": "L",
+          "description": "二氧化碳(%)",
+          "order": 11
+        },
+        "other": {
+          "javaFieldName": "inorganic",
+          "javaFieldType": "Double",
+          "columnCell": "M",
+          "description": "其它非烃(%)",
+          "order": 12
+        }
+      }
+    }
+  }
+}

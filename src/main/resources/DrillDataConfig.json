@@ -1,0 +1,169 @@
+{
+  "columns": [
+    {
+      "excelFieldName": "Depth",
+      "columnCell": "A",
+      "unit": "m",
+      "order": 1,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "TVD",
+      "columnCell": "B",
+      "unit": "m",
+      "order": 2,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "WOH",
+      "columnCell": "C",
+      "unit": "klbs",
+      "order": 3,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "WOB",
+      "columnCell": "D",
+      "unit": "klbs",
+      "order": 4,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "RPM",
+      "columnCell": "E",
+      "unit": "1/min",
+      "order": 5,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "DH RPM",
+      "columnCell": "F",
+      "unit": "1/min",
+      "order": 6,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "Total RPM",
+      "columnCell": "G",
+      "unit": "1/min",
+      "order": 7,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "Torque",
+      "columnCell": "H",
+      "unit": "lbf.ft",
+      "order": 8,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "Pump flow",
+      "columnCell": "I",
+      "unit": "L/min",
+      "order": 9,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "Booster Flow",
+      "columnCell": "J",
+      "unit": "L/min",
+      "order": 10,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "SPP",
+      "columnCell": "K",
+      "unit": "psi",
+      "order": 11,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "Pump1",
+      "columnCell": "L",
+      "unit": "1/min",
+      "order": 12,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "Pump2",
+      "columnCell": "M",
+      "unit": "1/min",
+      "order": 13,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "Pump3",
+      "columnCell": "N",
+      "unit": "1/min",
+      "order": 14,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "ROP",
+      "columnCell": "O",
+      "unit": "min/m",
+      "order": 15,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "ROP",
+      "columnCell": "P",
+      "unit": "m/h",
+      "order": 16,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "Bit Time",
+      "columnCell": "Q",
+      "unit": "h",
+      "order": 17,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "Bit Run",
+      "columnCell": "R",
+      "unit": "m",
+      "order": 18,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "Pump time",
+      "columnCell": "S",
+      "unit": "h",
+      "order": 19,
+      "dataType": "Double"
+    },{
+      "excelFieldName": "FlowOut",
+      "columnCell": "T",
+      "unit": "%",
+      "order": 20,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "Hook Height",
+      "columnCell": "U",
+      "unit": "m",
+      "order": 21,
+      "dataType": "Double"
+    },{
+      "excelFieldName": "MW OUT",
+      "columnCell": "V",
+      "unit": "g/cm3",
+      "order": 22,
+      "dataType": "Double"
+    },{
+      "excelFieldName": "D-Exponent",
+      "columnCell": "W",
+      "unit": "",
+      "order": 23,
+      "dataType": "Double"
+    },
+    {
+      "excelFieldName": "Date",
+      "columnCell": "X",
+      "unit": "",
+      "order": 24,
+      "dataType": "localdatetime"
+    }
+  ]
+}

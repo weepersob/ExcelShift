@@ -1,0 +1,146 @@
+{
+  "BatchSaveComplexEventsRequest": {
+    "targetClass": "com.excel.shift.ComplexEventsTemplateVO",
+    "description": "复杂事件",
+    "order": 1,
+    "resultType": "LIST",
+    "startRow": "2",
+    "endRow": null,
+    "table": {
+      "columns": {
+        "wellName": {
+          "order": 1,
+          "javaFieldName": "wellName",
+          "javaFieldType": "String",
+          "columnCell": "A",
+          "description": "井名"
+        },
+        "complexEventType": {
+          "order": 2,
+          "javaFieldName": "complexEventType",
+          "javaFieldType": "String",
+          "columnCell": "B",
+          "description": "复杂事故类型"
+        },
+        "complexEventName": {
+          "order": 3,
+          "javaFieldName": "complexEventName",
+          "javaFieldType": "String",
+          "columnCell": "C",
+          "description": "复杂事故名称"
+        },
+        "occurrenceEventTopDepth": {
+          "order": 4,
+          "javaFieldName": "occurrenceEventTopDepth",
+          "javaFieldType": "Double",
+          "columnCell": "D",
+          "description": "发生事故顶深"
+        },
+        "occurrenceEventTime": {
+          "order": 5,
+          "javaFieldName": "occurrenceEventTime",
+          "javaFieldType": "LocalDateTime",
+          "columnCell": "E",
+          "description": "发生事故时间"
+        },
+        "occurrenceEventEndDepth": {
+          "order": 6,
+          "javaFieldName": "occurrenceEventEndDepth",
+          "javaFieldType": "Double",
+          "columnCell": "F",
+          "description": "发生事故底深"
+        },
+        "solutionEventTime": {
+          "order": 7,
+          "javaFieldName": "solutionEventTime",
+          "javaFieldType": "LocalDateTime",
+          "columnCell": "G",
+          "description": "解决事故时间"
+        },
+        "complexEventDesc": {
+          "order": 8,
+          "javaFieldName": "complexEventDesc",
+          "javaFieldType": "String",
+          "columnCell": "H",
+          "description": "事故描述"
+        },
+        "complexEventReason": {
+          "order": 9,
+          "javaFieldName": "complexEventReason",
+          "javaFieldType": "String",
+          "columnCell": "I",
+          "description": "事故原因"
+        },
+        "complexEventProcess": {
+          "order": 10,
+          "javaFieldName": "complexEventProcess",
+          "javaFieldType": "String",
+          "columnCell": "J",
+          "description": "事故处理情况"
+        },
+        "mudType": {
+          "order": 11,
+          "javaFieldName": "mudType",
+          "javaFieldType": "String",
+          "columnCell": "K",
+          "description": "泥浆类型"
+        },
+        "mudDen": {
+          "order": 12,
+          "javaFieldName": "mudDen",
+          "javaFieldType": "Double",
+          "columnCell": "L",
+          "description": "泥浆密度（g/cm3）",
+          "unit": "(g/cm3)"
+        },
+        "leakageAmount": {
+          "order": 13,
+          "javaFieldName": "leakageAmount",
+          "javaFieldType": "Double",
+          "columnCell": "M",
+          "description": "漏失量(L)",
+          "unit": "(L)"
+        },
+        "tool": {
+          "order": 14,
+          "javaFieldName": "tool",
+          "javaFieldType": "String",
+          "columnCell": "N",
+          "description": "仪器串组合"
+        },
+        "toolLength": {
+          "order": 15,
+          "javaFieldName": "toolLength",
+          "javaFieldType": "Double",
+          "columnCell": "O",
+          "description": "仪器串长度（m）",
+          "unit": "(m)"
+        },
+        "toolWeight": {
+          "order": 16,
+          "javaFieldName": "toolWeight",
+          "javaFieldType": "Double",
+          "columnCell": "P",
+          "description": "仪器串重量（lbs）",
+          "unit": "(lbs)"
+        },
+        "toolMaxOuterDiameter": {
+          "order": 17,
+          "javaFieldName": "toolMaxOuterDiameter",
+          "javaFieldType": "Double",
+          "columnCell": "Q",
+          "description": "仪器串最大外径（in）",
+          "unit": "(in)"
+        },
+        "toolFallenLength": {
+          "order": 18,
+          "javaFieldName": "toolFallenLength",
+          "javaFieldType": "Double",
+          "columnCell": "R",
+          "description": "仪器落井长度（m）",
+          "unit": "(m)"
+        }
+      }
+    }
+  }
+}

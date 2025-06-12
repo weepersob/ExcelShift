@@ -9,8 +9,10 @@ import org.dromara.hutool.core.collection.CollUtil;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
@@ -39,6 +41,48 @@ public class ExcelMappingConfig {
      */
     public ExcelMappingConfig() {
         this.extractors = new ArrayList<>();
+    }
+
+    // 通过request构建ExcelMappingConfig对象
+    public static ExcelMappingConfig buildExcelMappingConfig(Request request) {
+        ExcelMappingConfig excelMappingConfig = new ExcelMappingConfig();
+        List<ExtractorConfig> extractors =new ArrayList<>();
+        // 构建extractors列表
+        AtomicReference<Integer> i= new AtomicReference<>(1);
+        AtomicReference<Integer> j= new AtomicReference<>(1);
+        request.getClassInfoList().forEach(classInfo -> {
+            j.set(1);
+            ExtractorConfig extractorConfig = new ExtractorConfig();
+            extractorConfig.setId(classInfo.getSimpleName());
+            extractorConfig.setOrder(i.getAndSet(i.get() + 1));
+            extractorConfig.setResultType(ExtractorConfig.ResultType.LIST);  // 默认就是简单的list
+            extractorConfig.setStartRow(String.valueOf(request.getStartRow()));
+            extractorConfig.setEndRow(String.valueOf(request.getEndRow()));
+            extractorConfig.setTargetClass(classInfo.getName());
+            TableConfig tableConfig = new TableConfig();
+            Map<String, ColumnConfig> columns= new HashMap<>();
+            request.getColumnInfoList().forEach(columnInfo -> {
+                ColumnConfig columnConfig = new ColumnConfig();
+                columnConfig.setOrder(j.getAndSet(j.get() + 1));
+                columnConfig.setColumnCell(columnInfo.getColumnSeq().toUpperCase());
+                columnConfig.setJavaFieldName(columnInfo.getColumnName());
+                columnConfig.setUnit(columnInfo.getColumnName_unit());
+                Field field = null;
+                try {
+                    field = classInfo.getDeclaredField(columnInfo.getColumnName());
+                } catch (NoSuchFieldException e) {
+                    throw new RuntimeException(e);
+                }
+                field.setAccessible(true);
+                columnConfig.setJavaFieldType(field.getType().getName());
+                columns.put(field.getName(), columnConfig);
+            });
+            tableConfig.setColumns(columns);
+            extractorConfig.setTable(tableConfig);
+            extractors.add(extractorConfig);
+        });
+        excelMappingConfig.extractors=extractors;
+        return excelMappingConfig;
     }
 
     /**
