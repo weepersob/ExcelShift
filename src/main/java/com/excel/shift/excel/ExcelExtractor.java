@@ -91,7 +91,7 @@ public class ExcelExtractor implements SimpleExtract {
     private int totalSheetCount;
     private ExcelMappingConfig originalMappingConfig;
     private ExcelMappingConfig mappingConfig;
-    private Map<Integer, Map<Integer, String>> currentSheetData;
+    private TreeMap<Integer, Map<Integer, String>> currentSheetData;
     private RequestForColumn requestForColumn;
     private Integer startRow = null;
     private Integer endRow = null;
@@ -158,7 +158,7 @@ public class ExcelExtractor implements SimpleExtract {
             }
         } catch (Exception e) {
             log.error("读取sheet[{}]数据失败: {}", sheetIndex, e.getMessage());
-            this.currentSheetData = new HashMap<>();
+            this.currentSheetData = new TreeMap<>();
             if (currentResult != null) {
                 currentResult.addError("读取sheet数据失败", e, "SheetLoader");
             }
@@ -453,6 +453,39 @@ public class ExcelExtractor implements SimpleExtract {
         return null;
     }
 
+    private int findGroupDataRow(int startRow, int startCol, int groupRowCount) {
+//        int lastRow = startRow;
+        return currentSheetData.lastKey();
+//         return currentSheetData.size()+1;
+
+        // 从开始行向下搜索
+//        for (int row = startRow; row < currentSheetData.size(); row++) {
+//            if (!currentSheetData.containsKey(row)) {
+////                if (row >  groupRowCount+ 10) { // 连续3行没数据认为结束
+////                    break;
+////                }
+//                continue;
+//            }
+//
+//            Map<Integer, String> rowData = currentSheetData.get(row);
+//            boolean hasData = false;
+//
+//            // 检查行中是否有数据
+//            for (Map.Entry<Integer, String> cell : rowData.entrySet()) {
+//                if (cell.getKey() >= startCol && cell.getValue() != null && !cell.getValue().trim().isEmpty()) {
+//                    hasData = true;
+//                    break;
+//                }
+//            }
+//
+//            if (hasData) {
+//                lastRow = row;
+//            }
+//        }
+//        return lastRow;
+
+    }
+
     /**
      * 查找最后一行数据
      */
@@ -560,11 +593,11 @@ public class ExcelExtractor implements SimpleExtract {
             for (String p : COMMON_DATE_TIME_PATTERNS) {
                 try {
                     DateTimeFormatter formatter = DateTimeFormatter.ofPattern(p);
-                if (p.contains("H") || p.contains("m") || p.contains("s")) {
-                    return LocalDateTime.parse(value, formatter);
-                } else {
-                    return LocalDate.parse(value, formatter).atStartOfDay(); // 补时间 00:00:00
-                }
+                    if (p.contains("H") || p.contains("m") || p.contains("s")) {
+                        return LocalDateTime.parse(value, formatter);
+                    } else {
+                        return LocalDate.parse(value, formatter).atStartOfDay(); // 补时间 00:00:00
+                    }
                 } catch (DateTimeParseException e) {
                     // 尝试下一个格式
                 }
@@ -927,7 +960,7 @@ public class ExcelExtractor implements SimpleExtract {
         // 确定表格范围
         int startRow = resolveRowIndex(extractor.getStartRow());
         int endRow = extractor.getEndRow() != null ? resolveRowIndex(extractor.getEndRow()) :
-                findLastDataRow(startRow, 0); // 如果未指定结束行，自动查找
+                findGroupDataRow(startRow, 0, extractor.getGroupRowCount()); // 如果未指定结束行，自动查找
 
         // 获取行组计数（每组包含多少行）
         int groupRowCount = extractor.getGroupRowCount();

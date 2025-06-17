@@ -10,21 +10,35 @@ import com.excel.shift.result.SheetExtractionResult;
 import com.excel.shift.util.JsonConfigReader;
 
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
 public class Main {
     public static void main(String[] args) throws IOException {
 
-        String excelPath = "D:\\JavaProject\\ExcelShift4 - clean\\src\\main\\resources\\复杂事件模板.xlsx";
-        String configPath = "D:\\JavaProject\\ExcelShift4 - clean\\src\\main\\resources\\AllComplexEventsConfig.json";
-        List<Class<?>> classList = new ArrayList<>();
-        classList.add(ComplexEventsTemplateVO.class);
-        ExcelExtractor extractor = new ExcelExtractor(excelPath, configPath,classList);
-        SheetExtractionResult result = extractor.extractSheetByIndex(0);
-        result.getResultList(ComplexEventsTemplateVO.class).forEach(System.out::println);
+//        String excelPath = "D:\\JavaProject\\ExcelShift4 - clean\\src\\main\\resources\\复杂事件模板.xlsx";
+//        String configPath = "D:\\JavaProject\\ExcelShift4 - clean\\src\\main\\resources\\AllComplexEventsConfig.json";
+//        List<Class<?>> classList = new ArrayList<>();
+//        classList.add(ComplexEventsTemplateVO.class);
+//        ExcelExtractor extractor = new ExcelExtractor(excelPath, configPath,classList);
+//        SheetExtractionResult result = extractor.extractSheetByIndex(0);
+//        result.getResultList(ComplexEventsTemplateVO.class).forEach(System.out::println);
+        // 解析后的数据集合
+        List<MudGeoOilgasShow> data;
 
+        String configPath = "D:\\JavaProject\\ExcelShift4 - clean\\src\\main\\resources\\MudGeoOilgasShowConfig.json";
+        ExcelExtractor extractor = new ExcelExtractor("D:\\JavaProject\\ExcelShift4 - clean\\src\\main\\resources\\录井油气显示表.xls", configPath, Collections.singletonList(MudGeoOilgasShow.class));
+        SheetExtractionResult sheetExtractionResult = extractor.extractSheetByIndex(0);
+//        if (!sheetExtractionResult.isSuccess()) {
+//            throw new ServiceException(1, "解析文件失败!");
+//        }
+        data = sheetExtractionResult.getResultList(MudGeoOilgasShow.class);
+
+        data.forEach(System.out::println);
+        System.out.println(data.size());
 
 
 ////        List<Class<?>> classList = new ArrayList<>();

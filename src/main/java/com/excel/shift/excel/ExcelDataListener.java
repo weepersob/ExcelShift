@@ -85,8 +85,8 @@ public class ExcelDataListener extends AnalysisEventListener<Map<Integer, String
         if(ObjUtil.isNotNull(endRow)&&endRow!=-1 && rowIndex > endRow)return;
 //        log.error("startRow:{},endRow:{},rowIndex:{}",startRow,endRow,rowIndex);
         data.put(rowIndex, rowData);  // 经过边界过滤后，才真正处理这一行
-        log.error("rowIndex:{}",rowIndex);
-        log.error("rowData:{}",rowData);
+//        log.error("rowIndex:{}",rowIndex);
+//        log.error("rowData:{}",rowData);
 
         if (expressionResolver != null) {
             expressionResolver.updateDynamicRowTablePosition(rowIndex, rowData);
@@ -115,7 +115,7 @@ public class ExcelDataListener extends AnalysisEventListener<Map<Integer, String
         return rowData.get(col);
     }
 
-    public Map<Integer, Map<Integer, String>> getData() {
+    public TreeMap<Integer, Map<Integer, String>> getData() {
         if (!isSuccess) {
             return new TreeMap<>();
         }
