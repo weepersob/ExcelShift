@@ -27,15 +27,15 @@ public class Main {
 //        SheetExtractionResult result = extractor.extractSheetByIndex(0);
 //        result.getResultList(ComplexEventsTemplateVO.class).forEach(System.out::println);
         // 解析后的数据集合
-        List<MudGeoOilgasShow> data;
+        List<MudGeoOilgasShowExcel> data;
 
-        String configPath = "D:\\JavaProject\\ExcelShift4 - clean\\src\\main\\resources\\MudGeoOilgasShowConfig.json";
-        ExcelExtractor extractor = new ExcelExtractor("D:\\JavaProject\\ExcelShift4 - clean\\src\\main\\resources\\录井油气显示表.xls", configPath, Collections.singletonList(MudGeoOilgasShow.class));
+        String configPath = "D:\\JavaProject\\ExcelShift4 - clean\\src\\main\\resources\\MudGeoOilgasShowConfig(2).json";
+        ExcelExtractor extractor = new ExcelExtractor("D:\\JavaProject\\ExcelShift4 - clean\\src\\main\\resources\\录井油气显示表.xls", configPath, Collections.singletonList(MudGeoOilgasShowExcel.class));
         SheetExtractionResult sheetExtractionResult = extractor.extractSheetByIndex(0);
 //        if (!sheetExtractionResult.isSuccess()) {
 //            throw new ServiceException(1, "解析文件失败!");
 //        }
-        data = sheetExtractionResult.getResultList(MudGeoOilgasShow.class);
+        data = sheetExtractionResult.getResultList(MudGeoOilgasShowExcel.class);
 
         data.forEach(System.out::println);
         System.out.println(data.size());

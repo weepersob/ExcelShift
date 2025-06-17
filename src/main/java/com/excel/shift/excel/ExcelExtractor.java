@@ -1003,15 +1003,25 @@ public class ExcelExtractor implements SimpleExtract {
                         int groupRowIndex = column.getGroupRowIndex() != null ? column.getGroupRowIndex() : 1;
                         // 计算实际行号（groupRowIndex是从1开始的）
                         int actualRow = groupStartRow + groupRowIndex - 1;
-
                         // 检查行是否存在
                         if (!currentSheetData.containsKey(actualRow)) continue;
 
                         // 计算列索引
                         int col = ExcelCoordConverter.columnNameToIndex(column.getColumnCell());
 
-                        // 获取单元格值
+                        // 获取单元格值  特判一下三行的情况
                         String cellValue = currentSheetData.get(actualRow).get(col);
+                        if (groupRowCount == 3&&StrUtil.isEmpty(cellValue)) {
+                            if (StringUtils.isEmpty(cellValue)) {
+                                if (column.getGroupRowIndex().equals(1)) {
+                                    cellValue = currentSheetData.get(actualRow + 1).get(col);
+                                } else if (column.getGroupRowIndex().equals(3)) {
+                                    log.error(currentSheetData.get(actualRow - 1).get(col));
+                                    cellValue = currentSheetData.get(actualRow - 1).get(col);
+                                }
+
+                            }
+                        }
                         if (StringUtils.isEmpty(cellValue)) {
                             // 对于合并单元格，可能需要特殊处理
                             if (BooleanUtil.isTrue(column.getIsMergeType())) {
